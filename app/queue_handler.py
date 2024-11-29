@@ -1,5 +1,4 @@
 import os
-
 import boto3
 import pika
 from botocore.exceptions import BotoCoreError, ClientError
