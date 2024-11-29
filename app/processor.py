@@ -1,45 +1,30 @@
+import pandas as pd
 import json
 
 
-def process_message(message, logger):
+def process_data(message: str) -> dict:
     """
-    Process a single message.
+    Processes the input data and performs time series analysis.
 
     Parameters
     ----------
     message : str
-        The raw message to be processed.
-    logger : logging.Logger
-        Logger instance for logging information and errors.
+        Raw message body as a JSON string.
 
     Returns
     -------
-    dict or None
-        A dictionary containing the analysis result if successful, None otherwise.
+    dict
+        Processed data with analysis results.
     """
     try:
-        logger.info(f"Processing message: {message}")
-        # Parse the JSON message
         data = json.loads(message)
+        df = pd.DataFrame(data["prices"])
 
-        # Validate the message structure
-        if "symbol" not in data or "price" not in data:
-            raise ValueError("Invalid message format. Missing required fields.")
-
-        # Perform analysis on the data
-        analysis_result = {
+        # Example analysis: Simple moving average
+        df["SMA"] = df["price"].rolling(window=5).mean()
+        return {
             "symbol": data["symbol"],
-            "average_price": data["price"] * 1.05,  # Example computation
+            "analysis": df.to_dict(orient="records")
         }
-        logger.info(f"Analysis result: {analysis_result}")
-        return analysis_result
-
-    except json.JSONDecodeError as e:
-        # Log JSON parsing errors
-        logger.error(f"Failed to parse message: {e}", exc_info=True)
     except Exception as e:
-        # Log any other processing errors
-        logger.error(f"Error processing message: {e}", exc_info=True)
-
-    # Return None if processing fails
-    return None
+        return {"error": str(e)}

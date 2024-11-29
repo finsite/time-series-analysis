@@ -1,2 +1,11 @@
-sphinx==7.2.2          # For generating documentation
-sphinx-rtd-theme==3.0.2  # ReadTheDocs theme for Sphinx
+# Core Dependencies
+pandas                 # Data manipulation and analysis
+numpy                  # Numerical computations
+sqlalchemy             # Database integration
+
+# Queue Dependencies
+pika                   # RabbitMQ client library
+boto3                  # AWS SDK for SQS integration
+
+# Logging and Utilities
+python-dotenv          # For managing environment variables

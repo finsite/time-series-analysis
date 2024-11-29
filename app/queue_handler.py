@@ -2,6 +2,7 @@ import os
 import boto3
 import pika
 from botocore.exceptions import BotoCoreError, ClientError
+from typing import Iterator
 
 
 class QueueHandler:
@@ -9,10 +10,20 @@ class QueueHandler:
         self.logger = logger
         self.queue_type = os.getenv("QUEUE_TYPE", "SQS").upper()
         self.queue_name = os.getenv("QUEUE_NAME")
+
         if not self.queue_name:
             raise ValueError("QUEUE_NAME environment variable is required.")
 
-    def poll_sqs(self):
+        if self.queue_type == "RABBITMQ":
+            self.rabbitmq_host = os.getenv("RABBITMQ_HOST", "localhost")
+            if not self.rabbitmq_host:
+                raise ValueError("RABBITMQ_HOST environment variable is required.")
+        elif self.queue_type == "SQS":
+            self.aws_region = os.getenv("AWS_REGION")
+            if not self.aws_region:
+                raise ValueError("AWS_REGION environment variable is required.")
+
+    def poll_sqs(self) -> Iterator[str]:
         """
         Poll messages from an SQS queue.
 
@@ -23,13 +34,13 @@ class QueueHandler:
         """
         try:
             session = boto3.session.Session()
-            sqs = session.client("sqs", region_name=os.getenv("AWS_REGION"))
+            sqs = session.client("sqs", region_name=self.aws_region)
             queue_url = sqs.get_queue_url(QueueName=self.queue_name)["QueueUrl"]
 
             while True:
                 response = sqs.receive_message(
                     QueueUrl=queue_url,
-                    MaxNumberOfMessages=1,
+                    MaxNumberOfMessages=5,
                     WaitTimeSeconds=10,
                 )
                 messages = response.get("Messages", [])
@@ -47,7 +58,7 @@ class QueueHandler:
         except (BotoCoreError, ClientError) as e:
             self.logger.error(f"SQS error: {e}", exc_info=True)
 
-    def poll_rabbitmq(self):
+    def poll_rabbitmq(self) -> Iterator[str]:
         """
         Poll messages from a RabbitMQ queue.
 
@@ -58,7 +69,7 @@ class QueueHandler:
         """
         try:
             connection = pika.BlockingConnection(
-                pika.ConnectionParameters(host=os.getenv("RABBITMQ_HOST", "localhost"))
+                pika.ConnectionParameters(host=self.rabbitmq_host)
             )
             channel = connection.channel()
             channel.queue_declare(queue=self.queue_name)
@@ -67,18 +78,15 @@ class QueueHandler:
                 yield body.decode()
                 channel.basic_ack(delivery_tag=method_frame.delivery_tag)
                 self.logger.info("RabbitMQ message acknowledged.")
+
+        except pika.exceptions.AMQPConnectionError as e:
+            self.logger.error(f"RabbitMQ connection error: {e}", exc_info=True)
         except Exception as e:
             self.logger.error(f"RabbitMQ error: {e}", exc_info=True)
 
-    def poll(self):
+    def poll(self) -> Iterator[str]:
         """
         Poll messages from the configured queue.
-
-        This method polls messages from the specified queue based on the
-        configured queue type. If the queue type is SQS, this method uses the
-        Boto3 library to interact with the Amazon SQS service. If the queue type
-        is RabbitMQ, this method uses the Pika library to interact with the
-        RabbitMQ message broker.
 
         Yields
         ------
@@ -91,4 +99,4 @@ class QueueHandler:
             return self.poll_rabbitmq()
         else:
             self.logger.error(f"Unsupported queue type: {self.queue_type}")
-            return iter([])
+            return iter([])  # Return an empty iterator to avoid crashes

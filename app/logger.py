@@ -2,34 +2,37 @@ import logging
 import os
 
 
-def configure_logger() -> logging.Logger:
+def setup_logger(name: str) -> logging.Logger:
     """
-    Configures and returns a logger instance.
+    Sets up a logger with console and file handlers.
 
-    LOG_LEVEL environment variable sets the log level. Default is INFO.
-    LOG_FILE environment variable sets the log file. Default is None.
+    Parameters
+    ----------
+    name : str
+        Name of the logger.
 
-    Returns:
-        logging.Logger: Configured logger instance.
+    Returns
+    -------
+    logging.Logger
+        Configured logger instance.
     """
     log_level = os.getenv("LOG_LEVEL", "INFO").upper()
-    logger = logging.getLogger("TimeSeriesApp")
+    logger = logging.getLogger(name)
     logger.setLevel(log_level)
+
+    # File handler
+    file_handler = logging.FileHandler('logs/app.log')
+    file_handler.setLevel(log_level)
+    file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    file_handler.setFormatter(file_formatter)
 
     # Console handler
     console_handler = logging.StreamHandler()
-    console_handler.setFormatter(
-        logging.Formatter("%(asctime)s [%(name)s] [%(levelname)s] %(message)s")
-    )
-    logger.addHandler(console_handler)
+    console_handler.setLevel(log_level)
+    console_formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+    console_handler.setFormatter(console_formatter)
 
-    # Optional file handler
-    log_file = os.getenv("LOG_FILE")
-    if log_file:
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setFormatter(
-            logging.Formatter("%(asctime)s [%(name)s] [%(levelname)s] %(message)s")
-        )
-        logger.addHandler(file_handler)
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
 
     return logger

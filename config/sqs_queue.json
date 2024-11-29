@@ -1,0 +1,4 @@
+{
+    "region": "us-east-1",
+    "queue_name": "time_series_queue"
+}
